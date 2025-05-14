@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, send_from_directory
 import time
-import os
+import os, re
 import logging
 from datetime import datetime, timedelta
 import asyncio
@@ -77,7 +77,7 @@ async def fetch_signature_count():
                     return None
 
                 count_text = await current_count_element.inner_text()
-                signature_count = int(count_text.strip().replace(',', ''))
+                signature_count = int(re.sub(r'\D', '', count_text))
                 await browser.close()
                 return signature_count
 

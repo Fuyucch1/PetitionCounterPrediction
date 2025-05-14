@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petition Counter</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Petition Progress Tracker</h1>
+
+        <div class="stats-container">
+            <div class="stat-box">
+                <h2>Current Signatures</h2>
+                <p id="current-count">Loading...</p>
+            </div>
+
+            <div class="stat-box">
+                <h2>Signatures per Minute</h2>
+                <p id="per-minute">Calculating...</p>
+            </div>
+
+            <div class="stat-box">
+                <h2>Signatures per Hour</h2>
+                <p id="per-hour">Calculating...</p>
+            </div>
+
+            <div class="stat-box">
+                <h2>Estimated Time to 1 Million</h2>
+                <p id="time-to-million">Calculating...</p>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div id="progress" class="progress"></div>
+            </div>
+            <p id="progress-text">0%</p>
+            <p id="last-updated" class="last-updated">Last updated: Calculating...</p>
+        </div>
+
+        <div class="plot-container">
+            <h2>Signatures Over Time</h2>
+            <div id="signature-plot" style="width:100%; height:400px;"></div>
+        </div>
+
+        <p class="source-info">Data source: <a href="https://eci.ec.europa.eu/043/public/#/screen/home" target="_blank">European Citizens' Initiative</a></p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -164,7 +164,7 @@ def time_of_day_forecast(data, lookback_days=1):
     for h, rate in hourly_avg.items():
         if rate == 0:
             # Use the closest hour's rate if available
-            hourly_avg[h] = hourly_avg[3] * 0.8
+            hourly_avg[h] = hourly_avg[5] * 0.8
 
 
     # Simulate forward hour-by-hour

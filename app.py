@@ -149,11 +149,10 @@ def time_of_day_forecast(data, lookback_days=1):
 
     hourly_avg = {}
     for h, rates in hourly_bins.items():
-        print(f"Hour {h}: {rates}")
         if h == current_hour:
             # Use current rate for the current hour if no historical data
             # If the current rate is close to the average, use the average instead
-            if abs(current_rate - np.mean(rates)) < 0.1 * np.mean(rates):
+            if abs(current_rate - np.mean(rates)) < 0.2 * np.mean(rates):
                 hourly_avg[h] = np.mean(rates)
             else:
                 hourly_avg[h] = current_rate

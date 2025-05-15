@@ -21,6 +21,12 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Custom error handler for 404 errors to prevent them from being logged
+@app.errorhandler(404)
+def page_not_found(e):
+    # Return 404 response without logging the error
+    return send_from_directory('.', 'index.html'), 404
+
 ECI_URL = "https://eci.ec.europa.eu/043/public/#/screen/home"
 TARGET_SIGNATURES = 1000000
 HISTORY_FILE = "interpolated_signature_history.json"

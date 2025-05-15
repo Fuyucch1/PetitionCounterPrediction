@@ -32,10 +32,6 @@ cache = {
     "cache_duration": 30
 }
 
-data_history = []
-if os.path.exists(HISTORY_FILE):
-    with open(HISTORY_FILE, "r") as f:
-        data_history = json.load(f)
 
 # Save history periodically to prevent data loss
 def periodic_save(interval=60):
@@ -147,6 +143,7 @@ def time_of_day_forecast(data, lookback_days=1):
 
     hourly_avg = {}
     for h, rates in hourly_bins.items():
+        print(f"Hour {h}: {rates}")
         if h == current_hour:
             # Use current rate for the current hour if no historical data
             # If the current rate is close to the average, use the average instead
@@ -308,8 +305,6 @@ def background_refresh():
             signature_count = asyncio.run(fetch_signature_count())
             if signature_count is not None:
                 data_history.append({"count": signature_count, "timestamp": current_time})
-                if len(data_history) > 500:
-                    data_history.pop(0)
                 save_history()
                 rates = calculate_rates()
                 cache["last_fetch_time"] = current_time
@@ -327,6 +322,26 @@ def background_refresh():
         except Exception as e:
             logger.error(f"Background refresh failed: {e}")
         time.sleep(30)
+
+data_history = []
+if os.path.exists(HISTORY_FILE):
+    with open(HISTORY_FILE, "r") as f:
+        data_history = json.load(f)
+        if data_history:
+            latest_entry = data_history[-1]
+            rates = calculate_rates()
+            cache["data"] = {
+                "count": latest_entry["count"],
+                "timestamp": latest_entry["timestamp"],
+                "last_fetch_time": latest_entry["timestamp"],
+                "formatted_time": datetime.fromtimestamp(latest_entry["timestamp"]).strftime("%Y-%m-%d %H:%M:%S"),
+                "per_minute_rate": rates["per_minute_rate"],
+                "per_hour_rate": rates["per_hour_rate"],
+                "estimated_completion_date": rates["estimated_completion_date"],
+                "confidence_interval": rates["confidence_interval"],
+                "progress_percentage": (latest_entry["count"] / TARGET_SIGNATURES) * 100
+            }
+            cache["last_fetch_time"] = latest_entry["timestamp"]
 
 if __name__ == '__main__':
     threading.Thread(target=background_refresh, daemon=True).start()

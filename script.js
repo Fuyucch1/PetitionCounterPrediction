@@ -14,6 +14,10 @@ let lastFetchTime = 0; // Track when data was last fetched from ECI
 let nextFetchTimeout = null; // Timeout for next data fetch
 let isFetchingData = false; // Flag to prevent multiple simultaneous data fetches
 let isFetchingPlot = false; // Flag to prevent multiple simultaneous plot fetches
+let uiUpdateInterval = null; // Store the interval ID for UI updates
+
+// Initialization flag to prevent multiple initializations
+let isInitialized = false;
 
 // Function to fetch data from the ECI website via our Flask API
 async function fetchSignatureData() {
@@ -63,16 +67,15 @@ async function fetchSignatureData() {
         document.getElementById('current-count').textContent = 'Error loading data';
 
         // If there was an error, try again after a short delay
-        // Reset the flag before scheduling the retry to prevent lockup
-        isFetchingData = false;
-        setTimeout(fetchSignatureData, 5000);
+        setTimeout(() => {
+            isFetchingData = false; // Reset flag before retry
+            fetchSignatureData();
+        }, 5000);
 
-        // We've already reset the flag in the catch block, so we'll return early
-        // to avoid the finally block resetting it again
+        // Return early to avoid the finally block
         return;
     } finally {
         // Reset the flag when fetch is complete (only for successful execution)
-        // For errors, we've already reset it in the catch block
         isFetchingData = false;
     }
 }
@@ -91,7 +94,7 @@ function scheduleNextFetch() {
 
     // Schedule next fetch exactly 30 seconds after the last fetch
     // If 30 seconds have already passed, fetch immediately (minimum 1 second delay)
-    const timeUntilNextFetch = Math.max(1000, 30 - timeSinceLastFetch) * 1000;
+    const timeUntilNextFetch = Math.max(1000, FETCH_INTERVAL/1000 - timeSinceLastFetch) * 1000;
 
     // Schedule next fetch with a wrapper function that checks if a fetch is already in progress
     nextFetchTimeout = setTimeout(() => {
@@ -100,14 +103,13 @@ function scheduleNextFetch() {
             fetchSignatureData();
         } else {
             console.log('Scheduled fetch skipped because a fetch is already in progress');
+            // Re-schedule in case this one was skipped
+            scheduleNextFetch();
         }
     }, timeUntilNextFetch);
 
     console.log(`Next data fetch scheduled in ${timeUntilNextFetch/1000} seconds`);
 }
-
-// Note: We're now using the Flask API to fetch real data from the ECI website
-// The implementation is in the fetchSignatureData function above
 
 // Process the data and update the UI
 function processData(data) {
@@ -128,35 +130,56 @@ function processData(data) {
     currentPerHourRate = data.per_hour_rate;
 
     // Update current count display
-    document.getElementById('current-count').textContent = data.count.toLocaleString();
+    const currentCountElement = document.getElementById('current-count');
+    if (currentCountElement) {
+        currentCountElement.textContent = data.count.toLocaleString();
+    }
 
     // Update rates display
-    document.getElementById('per-minute').textContent = Math.round(data.per_minute_rate).toLocaleString();
-    document.getElementById('per-hour').textContent = Math.round(data.per_hour_rate).toLocaleString();
+    const perMinuteElement = document.getElementById('per-minute');
+    if (perMinuteElement) {
+        perMinuteElement.textContent = Math.round(data.per_minute_rate).toLocaleString();
+    }
+
+    const perHourElement = document.getElementById('per-hour');
+    if (perHourElement) {
+        perHourElement.textContent = Math.round(data.per_hour_rate).toLocaleString();
+    }
 
     // Update estimated time to reach 1 million
-    if (data.estimated_completion_date) {
-        const estimatedDate = new Date(data.estimated_completion_date);
-        const options = { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        };
-        document.getElementById('time-to-million').textContent = estimatedDate.toLocaleDateString(undefined, options);
-    } else {
-        document.getElementById('time-to-million').textContent = 'Cannot estimate (rate too low)';
+    const timeToMillionElement = document.getElementById('time-to-million');
+    if (timeToMillionElement) {
+        if (data.estimated_completion_date) {
+            const estimatedDate = new Date(data.estimated_completion_date);
+            const options = {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            timeToMillionElement.textContent = estimatedDate.toLocaleDateString(undefined, options);
+        } else {
+            timeToMillionElement.textContent = 'Cannot estimate (rate too low)';
+        }
     }
 
     // Calculate and update progress bar
-    const progressPercentage = data.progress_percentage;
-    document.getElementById('progress').style.width = `${Math.min(progressPercentage, 100)}%`;
-    document.getElementById('progress-text').textContent = `${progressPercentage.toFixed(2)}%`;
+    const progressElement = document.getElementById('progress');
+    const progressTextElement = document.getElementById('progress-text');
+
+    if (progressElement && progressTextElement) {
+        const progressPercentage = data.progress_percentage;
+        progressElement.style.width = `${Math.min(progressPercentage, 100)}%`;
+        progressTextElement.textContent = `${progressPercentage.toFixed(2)}%`;
+    }
 
     // Update last updated timestamp
-    const formattedTime = new Date(data.timestamp * 1000).toLocaleTimeString();
-    document.getElementById('last-updated').textContent = `Last updated: ${formattedTime}`;
+    const lastUpdatedElement = document.getElementById('last-updated');
+    if (lastUpdatedElement) {
+        const formattedTime = new Date(data.timestamp * 1000).toLocaleTimeString();
+        lastUpdatedElement.textContent = `Last updated: ${formattedTime}`;
+    }
 }
 
 // Function to update the UI every second with interpolated values
@@ -182,39 +205,49 @@ function updateUIEverySecond() {
     const interpolatedCount = Math.round(latest.count + (currentPerMinuteRate / 60) * secondsElapsed);
 
     // Update current count display with interpolated value
-    document.getElementById('current-count').textContent = interpolatedCount.toLocaleString();
+    const currentCountElement = document.getElementById('current-count');
+    if (currentCountElement) {
+        currentCountElement.textContent = interpolatedCount.toLocaleString();
+    }
 
     // Update progress bar with interpolated value
-    const progressPercentage = (interpolatedCount / TARGET_SIGNATURES) * 100;
-    document.getElementById('progress').style.width = `${Math.min(progressPercentage, 100)}%`;
-    document.getElementById('progress-text').textContent = `${progressPercentage.toFixed(2)}%`;
+    const progressElement = document.getElementById('progress');
+    const progressTextElement = document.getElementById('progress-text');
+
+    if (progressElement && progressTextElement) {
+        const progressPercentage = (interpolatedCount / TARGET_SIGNATURES) * 100;
+        progressElement.style.width = `${Math.min(progressPercentage, 100)}%`;
+        progressTextElement.textContent = `${progressPercentage.toFixed(2)}%`;
+    }
 
     // Update the "last updated" text to show how long ago
     const lastUpdatedElement = document.getElementById('last-updated');
-    const lastUpdatedText = lastUpdatedElement.textContent;
+    if (lastUpdatedElement) {
+        const lastUpdatedText = lastUpdatedElement.textContent;
 
-    // Format the time ago text
-    let timeAgoText;
-    if (secondsElapsed < 60) {
-        timeAgoText = `${Math.floor(secondsElapsed)} seconds ago`;
-    } else if (secondsElapsed < 3600) {
-        const minutes = Math.floor(secondsElapsed / 60);
-        timeAgoText = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-    } else {
-        const hours = Math.floor(secondsElapsed / 3600);
-        const minutes = Math.floor((secondsElapsed % 3600) / 60);
-        timeAgoText = `${hours} hour${hours > 1 ? 's' : ''} ${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-    }
+        // Format the time ago text
+        let timeAgoText;
+        if (secondsElapsed < 60) {
+            timeAgoText = `${Math.floor(secondsElapsed)} seconds ago`;
+        } else if (secondsElapsed < 3600) {
+            const minutes = Math.floor(secondsElapsed / 60);
+            timeAgoText = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+        } else {
+            const hours = Math.floor(secondsElapsed / 3600);
+            const minutes = Math.floor((secondsElapsed % 3600) / 60);
+            timeAgoText = `${hours} hour${hours > 1 ? 's' : ''} ${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+        }
 
-    // Check if the text already contains a time ago part
-    if (lastUpdatedText.includes(' (')) {
-        // Extract the original timestamp
-        const originalTimestamp = lastUpdatedText.split('Last updated: ')[1].split(' (')[0];
-        lastUpdatedElement.textContent = `Last updated: ${originalTimestamp} (${timeAgoText})`;
-    } else if (lastUpdatedText.includes('Last updated:')) {
-        // First run after a real update, the text doesn't have a time ago part yet
-        const originalTimestamp = lastUpdatedText.split('Last updated: ')[1];
-        lastUpdatedElement.textContent = `Last updated: ${originalTimestamp} (${timeAgoText})`;
+        // Check if the text already contains a time ago part
+        if (lastUpdatedText.includes(' (')) {
+            // Extract the original timestamp
+            const originalTimestamp = lastUpdatedText.split('Last updated: ')[1].split(' (')[0];
+            lastUpdatedElement.textContent = `Last updated: ${originalTimestamp} (${timeAgoText})`;
+        } else if (lastUpdatedText.includes('Last updated:')) {
+            // First run after a real update, the text doesn't have a time ago part yet
+            const originalTimestamp = lastUpdatedText.split('Last updated: ')[1];
+            lastUpdatedElement.textContent = `Last updated: ${originalTimestamp} (${timeAgoText})`;
+        }
     }
 }
 
@@ -249,7 +282,7 @@ async function fetchPlotData() {
             y: data.new_signatures,
             type: 'scatter',
             mode: 'lines',  // Remove markers for a cleaner look
-            line: { 
+            line: {
                 width: 3,
                 shape: 'spline',  // Use spline for smooth curves
                 smoothing: 1.3,   // Increase smoothing
@@ -305,31 +338,85 @@ async function fetchPlotData() {
             displaylogo: false
         };
 
-        Plotly.newPlot('signature-plot', plotData, layout, config);
+        const plotElement = document.getElementById('signature-plot');
+        if (plotElement) {
+            Plotly.newPlot('signature-plot', plotData, layout, config);
+        }
 
     } catch (error) {
         console.error('Error fetching plot data:', error);
-        document.getElementById('signature-plot').innerHTML = 'Error loading plot';
+        const plotElement = document.getElementById('signature-plot');
+        if (plotElement) {
+            plotElement.innerHTML = 'Error loading plot';
+        }
     } finally {
         // Reset the flag when plot fetch is complete (whether successful or not)
         isFetchingPlot = false;
     }
 }
 
-// Initialize the application
-function init() {
-    // Fetch data immediately on page load
-    fetchSignatureData();
-    // Initial plot fetch (subsequent refreshes will be triggered by fetchSignatureData)
-    // We don't need to call fetchPlotData() here as it's already called by fetchSignatureData()
+// Clear all existing intervals and timeouts
+function clearAllTimers() {
+    // Clear UI update interval
+    if (uiUpdateInterval) {
+        clearInterval(uiUpdateInterval);
+        uiUpdateInterval = null;
+    }
 
-    // Update UI every second with interpolated values
-    setInterval(updateUIEverySecond, UI_UPDATE_INTERVAL);
-
-    console.log('Application initialized');
+    // Clear data fetch timeout
+    if (nextFetchTimeout) {
+        clearTimeout(nextFetchTimeout);
+        nextFetchTimeout = null;
+    }
 }
 
-// Start the application when the page loads
-// Ensure init is only called once by removing any existing event listeners first
-window.removeEventListener('DOMContentLoaded', init);
-window.addEventListener('DOMContentLoaded', init);
+// Initialize the application
+function init() {
+    // Check if already initialized to prevent multiple initializations
+    if (isInitialized) {
+        console.log('Application already initialized, skipping initialization');
+        return;
+    }
+
+    console.log('Initializing application');
+
+    // Set initialization flag
+    isInitialized = true;
+
+    // Clear any existing timers that might be running
+    clearAllTimers();
+
+    // Reset fetch flags
+    isFetchingData = false;
+    isFetchingPlot = false;
+
+    // Fetch data immediately on page load
+    fetchSignatureData();
+
+    // Set up UI update interval
+    uiUpdateInterval = setInterval(updateUIEverySecond, UI_UPDATE_INTERVAL);
+
+    console.log('Application initialized successfully');
+}
+
+// Only setup the event listener once when the script is first loaded
+(function() {
+    // First, remove any existing listeners to prevent duplicates
+    if (window.hasRunScriptInit) {
+        console.log('Script already initialized, preventing duplicate execution');
+        return;
+    }
+
+    // Set a flag on the window object to indicate this script has run
+    window.hasRunScriptInit = true;
+
+    if (document.readyState === 'loading') {
+        // Document still loading, add event listener
+        document.addEventListener('DOMContentLoaded', init);
+        console.log('DOMContentLoaded event listener added');
+    } else {
+        // Document already loaded, run init immediately
+        console.log('Document already loaded, running init immediately');
+        init();
+    }
+})();

@@ -223,7 +223,7 @@ def calculate_rates():
         "confidence_interval": None
     }
 
-@app.route('/api/signatures')
+@app.route('/get_signatures')
 def get_signatures():
     try:
         if cache["data"]:

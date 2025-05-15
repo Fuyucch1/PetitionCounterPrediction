@@ -17,7 +17,7 @@ let nextFetchTimeout = null; // Timeout for next data fetch
 async function fetchSignatureData() {
     try {
         // Fetch data from our API endpoint
-        const response = await fetch('/api/signatures');
+        const response = await fetch('/get_signatures');
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

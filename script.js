@@ -5,6 +5,7 @@ const FETCH_INTERVAL = 30000; // Fetch every 30 seconds
 const UI_UPDATE_INTERVAL = 1000; // Update UI every second
 const PLOT_REFRESH_INTERVAL = 30000; // Refresh plot every 30 seconds (same as data fetch)
 const CACHE_DURATION = 30; // Server cache duration in seconds
+const AUTO_REFRESH_THRESHOLD = 40; // After how many seconds to auto-refresh data
 
 // Store the latest actual count and rates for interpolation.py
 let latestActualCount = 0;
@@ -15,20 +16,31 @@ let nextFetchTimeout = null; // Timeout for next data fetch
 let isFetchingData = false; // Flag to prevent multiple simultaneous data fetches
 let isFetchingPlot = false; // Flag to prevent multiple simultaneous plot fetches
 let uiUpdateInterval = null; // Store the interval ID for UI updates
+let autoRefreshTimeout = null; // Store the timeout ID for auto-refresh
 
 // Initialization flag to prevent multiple initializations
 let isInitialized = false;
+
+// Add debug information to track script execution
+const scriptInstanceId = Math.random().toString(36).substring(2, 15);
+console.log(`Script instance initialized with ID: ${scriptInstanceId}`);
+
+// Debug function to log with instance ID for tracking
+function debugLog(message) {
+    console.log(`[Instance ${scriptInstanceId.substring(0, 4)}] ${message}`);
+}
 
 // Function to fetch data from the ECI website via our Flask API
 async function fetchSignatureData() {
     // If already fetching data, don't start another fetch
     if (isFetchingData) {
-        console.log('Data fetch already in progress, skipping this request');
+        debugLog('Data fetch already in progress, skipping this request');
         return;
     }
 
     // Set flag to indicate fetch is in progress
     isFetchingData = true;
+    debugLog('Starting data fetch');
 
     try {
         // Fetch data from our API endpoint
@@ -55,12 +67,21 @@ async function fetchSignatureData() {
         // Schedule next fetch based on server's fetch cycle
         scheduleNextFetch();
 
+        // Clear any existing auto-refresh timeout
+        if (autoRefreshTimeout) {
+            clearTimeout(autoRefreshTimeout);
+            autoRefreshTimeout = null;
+        }
+
+        // Set up a new auto-refresh timeout
+        setupAutoRefresh();
+
         // Refresh the plot when new data is received
         fetchPlotData();
 
         // Log the last update time
         const lastUpdated = new Date(data.timestamp * 1000).toLocaleTimeString();
-        console.log(`Data updated at ${lastUpdated}`);
+        debugLog(`Data updated at ${lastUpdated}`);
 
     } catch (error) {
         console.error('Error fetching signature data:', error);
@@ -100,15 +121,16 @@ function scheduleNextFetch() {
     nextFetchTimeout = setTimeout(() => {
         // Only proceed if not already fetching data
         if (!isFetchingData) {
+            debugLog(`Executing scheduled fetch after ${timeUntilNextFetch/1000} seconds`);
             fetchSignatureData();
         } else {
-            console.log('Scheduled fetch skipped because a fetch is already in progress');
+            debugLog('Scheduled fetch skipped because a fetch is already in progress');
             // Re-schedule in case this one was skipped
             scheduleNextFetch();
         }
     }, timeUntilNextFetch);
 
-    console.log(`Next data fetch scheduled in ${timeUntilNextFetch/1000} seconds`);
+    debugLog(`Next data fetch scheduled in ${timeUntilNextFetch/1000} seconds with timeout ID: ${nextFetchTimeout}`);
 }
 
 // Process the data and update the UI
@@ -182,6 +204,30 @@ function processData(data) {
     }
 }
 
+// Function to set up the auto-refresh mechanism separately from UI updates
+function setupAutoRefresh() {
+    // Clear any existing auto-refresh timeout
+    if (autoRefreshTimeout) {
+        clearTimeout(autoRefreshTimeout);
+        autoRefreshTimeout = null;
+    }
+
+    // Set a timeout to refresh data after AUTO_REFRESH_THRESHOLD seconds
+    autoRefreshTimeout = setTimeout(() => {
+        // Only proceed if not already fetching data
+        if (!isFetchingData) {
+            debugLog(`Auto-refresh triggered after ${AUTO_REFRESH_THRESHOLD} seconds`);
+            fetchSignatureData();
+        } else {
+            debugLog('Auto-refresh skipped because a fetch is already in progress');
+            // Try again shortly
+            setupAutoRefresh();
+        }
+    }, AUTO_REFRESH_THRESHOLD * 1000);
+
+    debugLog(`Auto-refresh scheduled in ${AUTO_REFRESH_THRESHOLD} seconds with timeout ID: ${autoRefreshTimeout}`);
+}
+
 // Function to update the UI every second with interpolated values
 function updateUIEverySecond() {
     // Only update if we have at least one data point
@@ -193,12 +239,7 @@ function updateUIEverySecond() {
     // Calculate time elapsed since last fetch from ECI (in seconds)
     const secondsElapsed = (now - lastFetchTime * 1000) / 1000;
 
-    // Automatically refresh data when timer reaches 40 seconds, but only if not already fetching
-    if (secondsElapsed >= 40 && !isFetchingData) {
-        console.log('Auto-refreshing data after 40 seconds');
-        fetchSignatureData();
-        return; // Exit early as fetchSignatureData will trigger a new UI update
-    }
+    // Update UI without triggering auto-refresh (handled separately now)
 
     // Calculate interpolated count based on per-minute rate
     // (converting per-minute rate to per-second rate by dividing by 60)
@@ -359,14 +400,23 @@ async function fetchPlotData() {
 function clearAllTimers() {
     // Clear UI update interval
     if (uiUpdateInterval) {
+        debugLog(`Clearing UI update interval: ${uiUpdateInterval}`);
         clearInterval(uiUpdateInterval);
         uiUpdateInterval = null;
     }
 
     // Clear data fetch timeout
     if (nextFetchTimeout) {
+        debugLog(`Clearing next fetch timeout: ${nextFetchTimeout}`);
         clearTimeout(nextFetchTimeout);
         nextFetchTimeout = null;
+    }
+
+    // Clear auto-refresh timeout
+    if (autoRefreshTimeout) {
+        debugLog(`Clearing auto-refresh timeout: ${autoRefreshTimeout}`);
+        clearTimeout(autoRefreshTimeout);
+        autoRefreshTimeout = null;
     }
 }
 
@@ -374,11 +424,11 @@ function clearAllTimers() {
 function init() {
     // Check if already initialized to prevent multiple initializations
     if (isInitialized) {
-        console.log('Application already initialized, skipping initialization');
+        debugLog('Application already initialized, skipping initialization');
         return;
     }
 
-    console.log('Initializing application');
+    debugLog('Initializing application');
 
     // Set initialization flag
     isInitialized = true;
@@ -393,30 +443,38 @@ function init() {
     // Fetch data immediately on page load
     fetchSignatureData();
 
-    // Set up UI update interval
+    // Set up UI update interval - THIS IS THE ONLY PLACE WE SET UP THE INTERVAL
     uiUpdateInterval = setInterval(updateUIEverySecond, UI_UPDATE_INTERVAL);
+    debugLog(`Set up UI update interval with ID: ${uiUpdateInterval}`);
 
-    console.log('Application initialized successfully');
+    debugLog('Application initialized successfully');
 }
 
-// Only setup the event listener once when the script is first loaded
+// Self-executing function to handle initialization
 (function() {
-    // First, remove any existing listeners to prevent duplicates
-    if (window.hasRunScriptInit) {
-        console.log('Script already initialized, preventing duplicate execution');
+    // Check if the script has already been initialized via a global flag
+    if (window.signatureTrackerInitialized) {
+        debugLog('Script already initialized via global flag, preventing duplicate execution');
         return;
     }
 
-    // Set a flag on the window object to indicate this script has run
-    window.hasRunScriptInit = true;
+    // Set a global flag to prevent multiple initializations
+    window.signatureTrackerInitialized = true;
+    debugLog('Set global initialization flag');
 
+    // Check the document's ready state
     if (document.readyState === 'loading') {
         // Document still loading, add event listener
-        document.addEventListener('DOMContentLoaded', init);
-        console.log('DOMContentLoaded event listener added');
+        debugLog('Document still loading, adding DOMContentLoaded event listener');
+        document.addEventListener('DOMContentLoaded', function onDOMReady() {
+            // Remove the event listener to prevent multiple initializations
+            document.removeEventListener('DOMContentLoaded', onDOMReady);
+            debugLog('DOMContentLoaded event fired, initializing application');
+            init();
+        });
     } else {
         // Document already loaded, run init immediately
-        console.log('Document already loaded, running init immediately');
+        debugLog('Document already loaded, running init immediately');
         init();
     }
 })();

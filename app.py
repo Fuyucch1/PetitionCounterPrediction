@@ -352,5 +352,14 @@ if os.path.exists(HISTORY_FILE):
 threading.Thread(target=background_refresh, daemon=True).start()
 threading.Thread(target=periodic_save, daemon=True).start()
 if __name__ == '__main__':
+    # Configure Werkzeug logger to filter out 404 requests
+    werkzeug_logger = logging.getLogger('werkzeug')
+
+    class Filter404(logging.Filter):
+        def filter(self, record):
+            return not (record.getMessage() and "404" in record.getMessage())
+
+    werkzeug_logger.addFilter(Filter404())
+
     port = int(os.environ.get('PORT', 5000))
     app.run(host='127.0.0.1', port=port, debug=True)

@@ -343,8 +343,8 @@ if os.path.exists(HISTORY_FILE):
             }
             cache["last_fetch_time"] = latest_entry["timestamp"]
 
+threading.Thread(target=background_refresh, daemon=True).start()
+threading.Thread(target=periodic_save, daemon=True).start()
 if __name__ == '__main__':
-    threading.Thread(target=background_refresh, daemon=True).start()
-    threading.Thread(target=periodic_save, daemon=True).start()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='127.0.0.1', port=port, debug=True)

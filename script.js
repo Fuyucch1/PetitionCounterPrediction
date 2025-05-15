@@ -12,9 +12,20 @@ let currentPerMinuteRate = 0;
 let currentPerHourRate = 0;
 let lastFetchTime = 0; // Track when data was last fetched from ECI
 let nextFetchTimeout = null; // Timeout for next data fetch
+let isFetchingData = false; // Flag to prevent multiple simultaneous data fetches
+let isFetchingPlot = false; // Flag to prevent multiple simultaneous plot fetches
 
 // Function to fetch data from the ECI website via our Flask API
 async function fetchSignatureData() {
+    // If already fetching data, don't start another fetch
+    if (isFetchingData) {
+        console.log('Data fetch already in progress, skipping this request');
+        return;
+    }
+
+    // Set flag to indicate fetch is in progress
+    isFetchingData = true;
+
     try {
         // Fetch data from our API endpoint
         const response = await fetch('/get_signatures');
@@ -52,15 +63,26 @@ async function fetchSignatureData() {
         document.getElementById('current-count').textContent = 'Error loading data';
 
         // If there was an error, try again after a short delay
+        // Reset the flag before scheduling the retry to prevent lockup
+        isFetchingData = false;
         setTimeout(fetchSignatureData, 5000);
+
+        // We've already reset the flag in the catch block, so we'll return early
+        // to avoid the finally block resetting it again
+        return;
+    } finally {
+        // Reset the flag when fetch is complete (only for successful execution)
+        // For errors, we've already reset it in the catch block
+        isFetchingData = false;
     }
 }
 
 // Function to schedule the next data fetch based on server's fetch cycle
 function scheduleNextFetch() {
-    // Clear any existing timeout
+    // Clear any existing timeout to prevent multiple scheduled fetches
     if (nextFetchTimeout) {
         clearTimeout(nextFetchTimeout);
+        nextFetchTimeout = null;
     }
 
     // Calculate time since last server fetch
@@ -71,8 +93,15 @@ function scheduleNextFetch() {
     // If 30 seconds have already passed, fetch immediately (minimum 1 second delay)
     const timeUntilNextFetch = Math.max(1000, 30 - timeSinceLastFetch) * 1000;
 
-    // Schedule next fetch
-    nextFetchTimeout = setTimeout(fetchSignatureData, timeUntilNextFetch);
+    // Schedule next fetch with a wrapper function that checks if a fetch is already in progress
+    nextFetchTimeout = setTimeout(() => {
+        // Only proceed if not already fetching data
+        if (!isFetchingData) {
+            fetchSignatureData();
+        } else {
+            console.log('Scheduled fetch skipped because a fetch is already in progress');
+        }
+    }, timeUntilNextFetch);
 
     console.log(`Next data fetch scheduled in ${timeUntilNextFetch/1000} seconds`);
 }
@@ -141,8 +170,8 @@ function updateUIEverySecond() {
     // Calculate time elapsed since last fetch from ECI (in seconds)
     const secondsElapsed = (now - lastFetchTime * 1000) / 1000;
 
-    // Automatically refresh data when timer reaches 40 seconds
-    if (secondsElapsed >= 40) {
+    // Automatically refresh data when timer reaches 40 seconds, but only if not already fetching
+    if (secondsElapsed >= 40 && !isFetchingData) {
         console.log('Auto-refreshing data after 40 seconds');
         fetchSignatureData();
         return; // Exit early as fetchSignatureData will trigger a new UI update
@@ -191,6 +220,15 @@ function updateUIEverySecond() {
 
 // Function to fetch and display the plot
 async function fetchPlotData() {
+    // If already fetching plot data, don't start another fetch
+    if (isFetchingPlot) {
+        console.log('Plot fetch already in progress, skipping this request');
+        return;
+    }
+
+    // Set flag to indicate plot fetch is in progress
+    isFetchingPlot = true;
+
     try {
         // Fetch plot data from our API endpoint
         const response = await fetch('/api/plot');
@@ -272,6 +310,9 @@ async function fetchPlotData() {
     } catch (error) {
         console.error('Error fetching plot data:', error);
         document.getElementById('signature-plot').innerHTML = 'Error loading plot';
+    } finally {
+        // Reset the flag when plot fetch is complete (whether successful or not)
+        isFetchingPlot = false;
     }
 }
 
@@ -280,11 +321,15 @@ function init() {
     // Fetch data immediately on page load
     fetchSignatureData();
     // Initial plot fetch (subsequent refreshes will be triggered by fetchSignatureData)
-    fetchPlotData();
+    // We don't need to call fetchPlotData() here as it's already called by fetchSignatureData()
 
     // Update UI every second with interpolated values
     setInterval(updateUIEverySecond, UI_UPDATE_INTERVAL);
+
+    console.log('Application initialized');
 }
 
 // Start the application when the page loads
+// Ensure init is only called once by removing any existing event listeners first
+window.removeEventListener('DOMContentLoaded', init);
 window.addEventListener('DOMContentLoaded', init);

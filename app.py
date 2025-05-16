@@ -196,12 +196,14 @@ def time_of_day_forecast(data, lookback_days=1):
 
     if remaining > 0:
         return None
-
-    if projected_time < now and (TARGET_SIGNATURES - current_count) > 0:
-        projected_time = now
+    print("hello im getting here")
+    print(projected_time)
+    print(now)
+    if projected_time < datetime.utcnow() and (TARGET_SIGNATURES - current_count) > 0:
+        print("im in the loop")
+        projected_time = datetime.utcnow()
         remaining = TARGET_SIGNATURES - current_count
         steps = 0
-
         while remaining > 0 and steps < 24 * 60:
             gained = average_rate * 60  # per minute
             remaining -= gained

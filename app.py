@@ -191,7 +191,7 @@ def time_of_day_forecast(data, lookback_days=1):
         if rate > 0:
             gained = rate * 60
             remaining -= gained
-        projected_time += timedelta(hours=1)
+        projected_time += timedelta(minutes=1)
         steps += 1
 
     if remaining > 0:

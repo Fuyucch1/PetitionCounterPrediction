@@ -214,7 +214,7 @@ def time_of_day_forecast(data, lookback_days=1):
 
         if remaining > 0:
             return None
-
+    projected_time += timedelta(hours=2)
     return 0, 0, projected_time.strftime("%Y-%m-%d %H:%M:%S")
 
 def calculate_rates():

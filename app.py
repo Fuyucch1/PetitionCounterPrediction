@@ -201,7 +201,7 @@ def time_of_day_forecast(data, lookback_days=1):
     print(now)
     if projected_time < datetime.utcnow() and (TARGET_SIGNATURES - current_count) > 0:
         print("im in the loop")
-        projected_time = datetime.utcnow()
+        projected_time = datetime.utcnow() + timedelta(hours=2)
         remaining = TARGET_SIGNATURES - current_count
         steps = 0
         while remaining > 0 and steps < 24 * 60:

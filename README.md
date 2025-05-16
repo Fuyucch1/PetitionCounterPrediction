@@ -4,6 +4,17 @@ A real-time web application that tracks and predicts signature counts for the Eu
 
 ![Stats](stats.png)
 
+## Table of Contents
+- [Description](#description)
+- [Features](#features)
+- [Fast data exploration](#fast-data-exploration)
+- [Things I tried to make the prediction work](#things-i-tried-to-make-the-prediction-work)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Dependencies](#dependencies)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
 ## Description
 
 This application fetches signature data from the European Citizens' Initiative website, tracks the progress toward the target of 1.25 million signatures, and provides predictions on when this target will be reached. It uses time-of-day based models to account for variations in signature rates throughout the day.
@@ -31,10 +42,6 @@ Building this project was a great opportunity to explore the data and understand
 
 - **24-Hour Pattern Analysis**: How many signatures are collected throughout the day
 ![24-Hour Signature Pattern](24h_signature_pattern.png)
-
-- **Projected 24-Hour Pattern**: Today's (16/05/2025) signature pattern with projections for future hours
-![Projected 24-Hour Signature Pattern](24h_signature_pattern_projected.png)
-
 ## Things I tried to make the prediction work
 
 - **Time-of-Day Based Inference**: Implemented an inference that consider the time of day for more accurate predictions. Keeps track of the average signature count per hour and use it to predict future counts.

@@ -103,7 +103,7 @@ def time_of_day_forecast(data, lookback_days=1):
     current_hour = now.hour
     lookback_start = now - timedelta(days=lookback_days)
     latest_data = data[-1]
-    last_timestamp = latest["timestamp"]
+    last_timestamp = latest_data["timestamp"]
 
     # Calculate current signature rate (most recent data points)
     current_rate = 0

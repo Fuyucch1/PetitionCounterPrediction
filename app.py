@@ -28,7 +28,7 @@ def page_not_found(e):
     return send_from_directory('.', 'index.html'), 404
 
 ECI_URL = "https://eci.ec.europa.eu/043/public/#/screen/home"
-TARGET_SIGNATURES = 1000000
+TARGET_SIGNATURES = 1250000
 HISTORY_FILE = "interpolated_signature_history.json"
 
 cache = {
@@ -165,6 +165,7 @@ def time_of_day_forecast(data, lookback_days=1):
             if rates:
                 hourly_avg[h] = np.mean(rates)
             else:
+
                 hourly_avg[h] = 0
     # We make a second pass ONLY on the empty hours inside hourly_avg
     for h, rate in hourly_avg.items():
@@ -176,7 +177,6 @@ def time_of_day_forecast(data, lookback_days=1):
         for i in range(1, 4):
             next_hour = (current_hour + i) % 24
             hourly_avg[next_hour] = hourly_avg[next_hour] * projected_increase
-
 
     # Simulate forward hour-by-hour
     current_count = data[-1]["count"]

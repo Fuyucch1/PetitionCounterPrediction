@@ -198,11 +198,8 @@ def time_of_day_forecast(data, lookback_days=1):
 
     if remaining > 0:
         return None
-    print("hello im getting here")
-    print(projected_time)
-    print(now)
+
     if projected_time < datetime.utcfromtimestamp(last_timestamp) and (TARGET_SIGNATURES - current_count) > 0:
-        print("im in the loop")
         projected_time = datetime.utcfromtimestamp(last_timestamp)
         remaining = TARGET_SIGNATURES - current_count
         steps = 0
@@ -214,7 +211,7 @@ def time_of_day_forecast(data, lookback_days=1):
 
         if remaining > 0:
             return None
-    projected_time += timedelta(hours=2)
+
     return 0, 0, projected_time.strftime("%Y-%m-%d %H:%M:%S")
 
 def calculate_rates():

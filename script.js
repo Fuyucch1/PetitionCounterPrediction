@@ -1,11 +1,13 @@
 // Store historical data for rate calculations
 let dataHistory = [];
-const TARGET_SIGNATURES = 1000000;
+const TARGET_SIGNATURES = 1250000;
+const MILLION_MILESTONE = 1000000; // The 1 million milestone
 const FETCH_INTERVAL = 30000; // Fetch every 30 seconds
 const UI_UPDATE_INTERVAL = 1000; // Update UI every second
 const PLOT_REFRESH_INTERVAL = 30000; // Refresh plot every 30 seconds (same as data fetch)
 const CACHE_DURATION = 30; // Server cache duration in seconds
 const AUTO_REFRESH_THRESHOLD = 40; // After how many seconds to auto-refresh data
+let millionMilestoneTimestamp = null; // Store the timestamp when 1 million signatures was reached
 
 // Store the latest actual count and rates for interpolation.py
 let latestActualCount = 0;
@@ -172,7 +174,7 @@ function processData(data) {
     const timeToMillionElement = document.getElementById('time-to-million');
     if (timeToMillionElement) {
         if (data.estimated_completion_date) {
-            const estimatedDate = new Date(data.estimated_completion_date);
+            const estimatedDate = new Date(data.estimated_completion_date + "Z");
             const options = {
                 year: 'numeric',
                 month: 'long',
@@ -180,7 +182,7 @@ function processData(data) {
                 hour: '2-digit',
                 minute: '2-digit'
             };
-            timeToMillionElement.textContent = estimatedDate.toLocaleDateString(undefined, options);
+            timeToMillionElement.textContent = estimatedDate.toLocaleString(undefined, options);
         } else {
             timeToMillionElement.textContent = 'Cannot estimate (rate too low)';
         }
@@ -420,6 +422,64 @@ function clearAllTimers() {
     }
 }
 
+// Function to fetch complete historical data and find the million milestone timestamp
+async function fetchHistoricalDataAndFindMilestone() {
+    try {
+        debugLog('Fetching complete historical data');
+        const response = await fetch('/api/history');
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const historyData = await response.json();
+
+        // Sort data by timestamp to ensure chronological order
+        historyData.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Find the first entry where count exceeds 1 million
+        let milestoneEntry = null;
+        for (let i = 0; i < historyData.length; i++) {
+            if (historyData[i].count >= MILLION_MILESTONE) {
+                milestoneEntry = historyData[i];
+                break;
+            }
+        }
+
+        if (milestoneEntry) {
+            millionMilestoneTimestamp = milestoneEntry.timestamp;
+            debugLog(`Found million milestone timestamp: ${new Date(millionMilestoneTimestamp * 1000).toLocaleString()}`);
+
+            // Update the milestone announcement
+            updateMilestoneAnnouncement();
+        } else {
+            debugLog('Million milestone not found in historical data');
+        }
+    } catch (error) {
+        console.error('Error fetching historical data:', error);
+    }
+}
+
+// Function to update the milestone announcement with the actual timestamp
+function updateMilestoneAnnouncement() {
+    if (!millionMilestoneTimestamp) return;
+
+    const milestoneElement = document.querySelector('.milestone-announcement');
+    if (milestoneElement) {
+        // Convert timestamp to user's local timezone
+        const date = new Date(millionMilestoneTimestamp * 1000);
+
+        // Format the time using the user's locale settings
+        const options = {
+            hour: '2-digit',
+            minute: '2-digit'
+        };
+        const formattedTime = date.toLocaleTimeString(undefined, options);
+
+        milestoneElement.textContent = `The 1 000 000 milestone was achieved at ${formattedTime}. We're now trying to reach the 1 250 000 milestone!`;
+    }
+}
+
 // Initialize the application
 function init() {
     // Check if already initialized to prevent multiple initializations
@@ -439,6 +499,9 @@ function init() {
     // Reset fetch flags
     isFetchingData = false;
     isFetchingPlot = false;
+
+    // Fetch historical data and find million milestone
+    fetchHistoricalDataAndFindMilestone();
 
     // Fetch data immediately on page load
     fetchSignatureData();

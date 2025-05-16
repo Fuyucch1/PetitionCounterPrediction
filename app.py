@@ -189,7 +189,7 @@ def time_of_day_forecast(data, lookback_days=1):
         hour = projected_time.hour
         rate = hourly_avg.get(hour, average_rate)  # Fallback to average_rate if hour not found
         if rate > 0:
-            gained = rate * 3600
+            gained = rate * 60
             remaining -= gained
         projected_time += timedelta(hours=1)
         steps += 1

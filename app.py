@@ -197,6 +197,20 @@ def time_of_day_forecast(data, lookback_days=1):
     if remaining > 0:
         return None
 
+    if projected_time < now and (TARGET_SIGNATURES - current_count) > 0:
+        projected_time = now
+        remaining = TARGET_SIGNATURES - current_count
+        steps = 0
+
+        while remaining > 0 and steps < 24 * 60:
+            gained = average_rate * 60  # per minute
+            remaining -= gained
+            projected_time += timedelta(minutes=1)
+            steps += 1
+
+        if remaining > 0:
+            return None
+
     return 0, 0, projected_time.strftime("%Y-%m-%d %H:%M:%S")
 
 def calculate_rates():

@@ -345,6 +345,21 @@ def background_refresh():
                     "confidence_interval": rates["confidence_interval"],
                     "progress_percentage": (signature_count / TARGET_SIGNATURES) * 100
                 }
+            else:
+                latest_entry = data_history[-1]
+                rates = calculate_rates()
+                cache["data"] = {
+                    "count": latest_entry["count"],
+                    "timestamp": latest_entry["timestamp"],
+                    "last_fetch_time": latest_entry["timestamp"],
+                    "formatted_time": datetime.fromtimestamp(latest_entry["timestamp"]).strftime("%Y-%m-%d %H:%M:%S"),
+                    "per_minute_rate": rates["per_minute_rate"],
+                    "per_hour_rate": rates["per_hour_rate"],
+                    "estimated_completion_date": rates["estimated_completion_date"],
+                    "confidence_interval": rates["confidence_interval"],
+                    "progress_percentage": (latest_entry["count"] / TARGET_SIGNATURES) * 100
+                }
+                cache["last_fetch_time"] = latest_entry["timestamp"]
         except Exception as e:
             logger.error(f"Background refresh failed: {e}")
         time.sleep(30)

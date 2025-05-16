@@ -148,6 +148,7 @@ def time_of_day_forecast(data, lookback_days=1):
     average_rate = np.mean(valid_rates) * 0.8 if valid_rates else current_rate * 0.7
 
     hourly_avg = {}
+    projected_increase = None
     for h, rates in hourly_bins.items():
         if h == current_hour:
             # Use current rate for the current hour if no historical data
@@ -156,6 +157,7 @@ def time_of_day_forecast(data, lookback_days=1):
                 hourly_avg[h] = np.mean(rates)
             else:
                 hourly_avg[h] = current_rate
+                projected_increase = current_rate / np.mean(rates)
         else:
             # Use degraded average for other hours with no data
             if rates:
@@ -167,6 +169,11 @@ def time_of_day_forecast(data, lookback_days=1):
         if rate == 0:
             # Use the closest hour's rate if available
             hourly_avg[h] = hourly_avg[5] * 0.8
+
+    if projected_increase is not None:
+        for i in range(1, 4):
+            next_hour = (current_hour + i) % 24
+            hourly_avg[next_hour] = hourly_avg[next_hour] * projected_increase
 
 
     # Simulate forward hour-by-hour

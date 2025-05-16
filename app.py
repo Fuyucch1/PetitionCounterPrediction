@@ -102,6 +102,8 @@ def time_of_day_forecast(data, lookback_days=1):
     now = datetime.utcnow()
     current_hour = now.hour
     lookback_start = now - timedelta(days=lookback_days)
+    latest_data = data[-1]
+    last_timestamp = latest["timestamp"]
 
     # Calculate current signature rate (most recent data points)
     current_rate = 0
@@ -199,7 +201,7 @@ def time_of_day_forecast(data, lookback_days=1):
     print("hello im getting here")
     print(projected_time)
     print(now)
-    if projected_time < datetime.utcnow() and (TARGET_SIGNATURES - current_count) > 0:
+    if projected_time < datetime.utcfromtimestamp(last_timestamp) and (TARGET_SIGNATURES - current_count) > 0:
         print("im in the loop")
         projected_time = datetime.utcnow() + timedelta(hours=2)
         remaining = TARGET_SIGNATURES - current_count
